@@ -1,5 +1,5 @@
-id;nome;imagem;preço
-1;café;cafe.jpg;5
-2;açúcar;acucar.jpg;3
-3;sal;sal.jpg;2
-4;tijolo;tijolo.jpg;5
+id;nome;imagem;preço;quantidade
+1;café;cafe.jpg;5.0;34
+2;açúcar;acucar.jpg;3.0;56
+3;sal;sal.jpg;2.0;78
+4;tijolo;tijolo.jpg;5.0;3

@@ -7,11 +7,13 @@ from flask import (
     session,
     redirect,
     url_for,
-    flash
+    flash,
+    jsonify
 )
 
 
 app = Flask(__name__)
+app.secret_key = 'chavesecreta'
 
 
 class Produto:
@@ -23,18 +25,14 @@ class Produto:
         self.quantidade = None
 
 
-class Carrinho:
-    def __init__(self):
-        self.produtos = []
+def add_produto(carrinho, produto):
+    carrinho.append(produto)
 
-    def add_produto(self, produto):
-        self.produtos.append(produto)
-
-    def remove_produto(self, produto_id):
-        for p in self.produtos:
-            if p.id == produto_id:
-                self.produtos.remove(p)
-                return p
+def remove_produto(carrinho, produto_id):
+    for p in carrinho:
+        if p == produto_id:
+            carrinho.remove(p)
+            return p
 
 
 def conectar_db():
@@ -95,31 +93,37 @@ def salvar_produto(produto):
 def finalizar_carrinho(carrinho):
     conexao = conectar_db()
     cursor = conexao.cursor()
-    for produto in carrinho.produtos:
+    for produto_id in carrinho:
         sql = """
         UPDATE PRODUTO
         SET QUANTIDADE = QUANTIDADE - 1
         WHERE ID = {}
-        """.format(produto.id)
+        """.format(produto_id)
         cursor.execute(sql)
-    cursor.commit()
+    conexao.commit()
     conexao.close()
 
 
 @app.route("/")
 def index():
+    if not 'carrinho' in session:
+        session['carrinho'] = []
+
+    carrinho = session['carrinho']
     produtos = todos_produtos()
-    return render_template('index.html', produtos=produtos)
+
+    return render_template(
+        'index.html',
+        produtos=produtos,
+        qtd_carrinho=len(carrinho)
+    )
 
 
 @app.route("/carrinho/add/<int:produto_id>")
 def adicionar_carrinho(produto_id):
-    if not 'carrinho' in session:
-        session['carrinho'] = Carrinho()
-
     carrinho = session['carrinho']
     produto = buscar_produto(produto_id)
-    carrinho.add(produto)
+    add_produto(carrinho, produto.id)
     session['carrinho'] = carrinho
     flash(
         "Produto {} Adicionado ao Carrinho".format(produto.nome)
@@ -130,17 +134,23 @@ def adicionar_carrinho(produto_id):
 @app.route("/carrinho")
 def listar_carrinho():
     if 'carrinho' in session:
-        produtos = session['carrinho'].produtos
+        carrinho = session['carrinho']
     else:
-        produtos = []
+        carrinho = []
+
+    produtos = []
+    for produto_id in carrinho:
+        produtos.append(buscar_produto(produto_id))
+
     return render_template('carrinho.html', produtos=produtos)
 
 
 @app.route("/carrinho/delete/<int:produto_id>")
 def deletar_carrinho(produto_id):
     carrinho = session['carrinho']
-    produto = carrinho.remove_produto(produto_id)
+    remove_produto(carrinho, produto_id)
     session['carrinho'] = carrinho
+    produto = buscar_produto(produto_id)
     flash("Produto {} Removido do Carrinho".format(produto.nome))
     return redirect(url_for('listar_carrinho'))
 
@@ -149,6 +159,7 @@ def deletar_carrinho(produto_id):
 def finalizar_compra():
     carrinho = session['carrinho']
     finalizar_carrinho(carrinho)
+    session['carrinho'] = []
     flash("Compra Finalizada! Muito Obrigado e Volte Sempre :D")
     return redirect(url_for('index'))
 
